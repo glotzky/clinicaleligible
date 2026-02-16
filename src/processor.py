@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# 1. Define the Schema (The "Form")
+# 1. Define the Schema
 class Criterion(BaseModel):
     """Represents a single eligibility requirement extracted from text."""
     category: Literal["Age", "Condition", "Education", "Experience", "Medication", "Other"]
@@ -20,12 +20,13 @@ class StructuredCriteria(BaseModel):
     """The full collection of extracted criteria."""
     items: List[Criterion]
 
-# 2. Initialize the Groq Client with Instructor
-# Note: Groq requires 'Mode.GROQ' to handle the JSON schema correctly
-client = instructor.from_groq(
-    Groq(api_key=os.getenv("GROQ_API_KEY")), 
-    mode=instructor.Mode.GROQ
-)
+# 2. Correct Initialization
+# Use from_groq directly. It handles the patching and mode automatically.
+api_key = os.getenv("GROQ_API_KEY")
+if not api_key:
+    raise ValueError("GROQ_API_KEY not found. Check your .env file!")
+
+client = instructor.from_groq(Groq(api_key=api_key))
 
 def parse_criteria(raw_text: str) -> StructuredCriteria:
     """Uses Groq + Llama 3 to transform raw text into StructuredCriteria objects."""
@@ -39,8 +40,10 @@ def parse_criteria(raw_text: str) -> StructuredCriteria:
     )
 
 if __name__ == "__main__":
-    # Quick test
     sample = "Inclusion: Patients must be over 18. Exclusion: No history of smoking."
-    result = parse_criteria(sample)
-    for item in result.items:
-        print(f"{item.type}: {item.entity} ({item.category})")
+    try:
+        result = parse_criteria(sample)
+        for item in result.items:
+            print(f"✅ [{item.type}] {item.entity} | Category: {item.category}")
+    except Exception as e:
+        print(f"❌ Error: {e}")
