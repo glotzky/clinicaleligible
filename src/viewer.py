@@ -1,25 +1,42 @@
 import pandas as pd
 from sqlalchemy import create_engine
-from database import DB_URL
+import os
 
-def view_results():
-    engine = create_engine(DB_URL)
-    
-    # Use Pandas to read the SQL tables
+# Connect to the database we just created
+DB_URL = "sqlite:///./trials.db"
+engine = create_engine(DB_URL)
+
+def view_data():
+    print("\n" + "="*50)
+    print("       CLINICAL TRIAL STRUCTURED DATA")
+    print("="*50)
+
     try:
-        df_trials = pd.read_sql("SELECT * FROM trials", engine)
-        df_items = pd.read_sql("SELECT * FROM criteria_items", engine)
-        
-        print("\n=== STORED TRIALS ===")
-        print(df_trials[['nct_id', 'title']].to_string(index=False))
-        
-        print("\n=== STRUCTURED CRITERIA (Sample) ===")
-        # Merge them to see which criteria belongs to which trial
-        merged = pd.merge(df_items, df_trials[['nct_id']], left_on='trial_id', right_on='nct_id')
-        print(merged[['trial_id', 'type', 'category', 'entity', 'value']].head(20).to_string(index=False))
-        
+        # 1. Load the data using Pandas
+        query = """
+        SELECT 
+            t.nct_id, 
+            c.type, 
+            c.category, 
+            c.entity, 
+            c.operator, 
+            c.value 
+        FROM trials t
+        JOIN criteria_items c ON t.nct_id = c.trial_id
+        """
+        df = pd.read_sql(query, engine)
+
+        if df.empty:
+            print("No data found in the database.")
+            return
+
+        # 2. Display the table
+        # We use to_string() to ensure the table doesn't get truncated
+        print(df.to_string(index=False))
+        print("="*50 + "\n")
+
     except Exception as e:
-        print(f"No data found yet! Error: {e}")
+        print(f"❌ Error reading database: {e}")
 
 if __name__ == "__main__":
-    view_results()
+    view_data()
