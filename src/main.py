@@ -3,11 +3,13 @@ from api_client import fetch_trial_data
 from processor import parse_criteria
 from database import init_db, save_structured_trial
 
-# List of NCT IDs to process
+# List of diverse trials for Batch Ingestion & ICD-10 testing
 TRIAL_LIST = [
-    "NCT06253572", # Nurse Instructors
-    "NCT05000000", # Example 2
-    "NCT06000000", # Example 3
+    "NCT03529110", # HER2+ Breast Cancer (Metastatic)
+    "NCT05894954", # Early Dementia / Alzheimer's (Precision Medicine)
+    "NCT02485626", # Cardiovascular Risk in Breast Cancer Survivors
+    "NCT06589310", # Multi-cancer Early Detection (Registry)
+    "NCT03688126", # Alzheimer's Prevention (POINTER study)
 ]
 
 def run_batch():

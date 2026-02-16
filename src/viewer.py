@@ -19,6 +19,7 @@ def view_data():
             c.type, 
             c.category, 
             c.entity, 
+            c.icd10_code, -- New Column added here!
             c.operator, 
             c.value 
         FROM trials t
