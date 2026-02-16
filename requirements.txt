@@ -12,3 +12,4 @@ pandas>=2.2.0
 # We remove the exact versions here to let pip resolve the 'jiter' conflict
 openai>=2.0.0
 instructor>=1.7.0
+groq>=0.11.0

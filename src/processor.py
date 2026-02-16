@@ -1,6 +1,6 @@
 import os
 import instructor
-from openai import OpenAI
+from groq import Groq
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
 from dotenv import load_dotenv
@@ -20,14 +20,17 @@ class StructuredCriteria(BaseModel):
     """The full collection of extracted criteria."""
     items: List[Criterion]
 
-# 2. Initialize the Patched Client
-# Instructor transforms the OpenAI client to support 'response_model'
-client = instructor.from_openai(OpenAI(api_key=os.getenv("OPENAI_API_KEY")))
+# 2. Initialize the Groq Client with Instructor
+# Note: Groq requires 'Mode.GROQ' to handle the JSON schema correctly
+client = instructor.from_groq(
+    Groq(api_key=os.getenv("GROQ_API_KEY")), 
+    mode=instructor.Mode.GROQ
+)
 
 def parse_criteria(raw_text: str) -> StructuredCriteria:
-    """Uses LLM to transform raw text into StructuredCriteria objects."""
+    """Uses Groq + Llama 3 to transform raw text into StructuredCriteria objects."""
     return client.chat.completions.create(
-        model="gpt-4o",  # Or "gpt-4o-mini" for faster/cheaper testing
+        model="llama-3.3-70b-versatile",
         response_model=StructuredCriteria,
         messages=[
             {"role": "system", "content": "You are a medical data architect. Extract clinical trial eligibility into structured JSON."},
@@ -36,9 +39,8 @@ def parse_criteria(raw_text: str) -> StructuredCriteria:
     )
 
 if __name__ == "__main__":
-    # Test with a small snippet
-    sample_text = "Inclusion: Adults 18-65. Must have a Master's degree in Nursing. Exclusion: History of heart failure."
-    structured_data = parse_criteria(sample_text)
-    
-    for item in structured_data.items:
-        print(f"[{item.type}] {item.category}: {item.entity} | Value: {item.value}")
+    # Quick test
+    sample = "Inclusion: Patients must be over 18. Exclusion: No history of smoking."
+    result = parse_criteria(sample)
+    for item in result.items:
+        print(f"{item.type}: {item.entity} ({item.category})")
