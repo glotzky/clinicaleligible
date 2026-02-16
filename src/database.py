@@ -20,18 +20,14 @@ class TrialRecord(Base):
 
 class CriterionRecord(Base):
     __tablename__ = "criteria_items"
-    
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     trial_id = Column(String, ForeignKey("trials.nct_id"))
     category = Column(String)
     type = Column(String)
     entity = Column(String)
-    # --- ADD THIS LINE ---
-    operator = Column(String, nullable=True) 
-    # ---------------------
+    icd10_code = Column(String, nullable=True) # <-- New Column
+    operator = Column(String, nullable=True)
     value = Column(String)
-    
-    trial = relationship("TrialRecord", back_populates="structured_items")
 
 # Create the tables
 def init_db():

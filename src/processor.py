@@ -9,12 +9,17 @@ load_dotenv()
 
 # 1. Define the Schema
 class Criterion(BaseModel):
-    """Represents a single eligibility requirement extracted from text."""
     category: Literal["Age", "Condition", "Education", "Experience", "Medication", "Other"]
     type: Literal["Inclusion", "Exclusion"]
-    entity: str = Field(description="The primary subject, e.g., 'Nursing Degree', 'Diabetes'")
+    entity: str = Field(description="The primary subject, e.g., 'Type 2 Diabetes'")
+    # --- NEW FIELD ---
+    icd10_code: Optional[str] = Field(description="The matching ICD-10-CM code if it is a medical condition")
+    # -----------------
     operator: Optional[Literal["GREATER_THAN", "LESS_THAN", "EQUAL", "BETWEEN"]] = None
-    value: Optional[str] = Field(description="The specific value or threshold required")
+    value: Optional[str] = Field(description="Specific threshold")
+
+# In parse_criteria, we update the system prompt slightly:
+# "Extract clinical trial eligibility. For medical conditions, resolve to the most specific ICD-10-CM code possible."
 
 class StructuredCriteria(BaseModel):
     """The full collection of extracted criteria."""
