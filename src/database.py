@@ -23,9 +23,12 @@ class CriterionRecord(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     trial_id = Column(String, ForeignKey("trials.nct_id"))
-    category = Column(String) # Age, Condition, etc.
-    type = Column(String)     # Inclusion/Exclusion
+    category = Column(String)
+    type = Column(String)
     entity = Column(String)
+    # --- ADD THIS LINE ---
+    operator = Column(String, nullable=True) 
+    # ---------------------
     value = Column(String)
     
     trial = relationship("TrialRecord", back_populates="structured_items")
