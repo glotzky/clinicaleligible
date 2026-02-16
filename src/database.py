@@ -31,7 +31,6 @@ class CriterionRecord(Base):
     operator = Column(String, nullable=True)   # Supports operators
     value = Column(String)
 
-    # FIXED: Added this relationship to match TrialRecord's back_populates
     trial = relationship("TrialRecord", back_populates="structured_items")
 
 # 4. Database Operations
