@@ -18,14 +18,12 @@ db_path = os.path.join(project_root, "trials.db")
 # Create a SINGLE engine instance using the absolute path
 engine = create_engine(f"sqlite:///{db_path}")
 
-# Ensure Python can find the modules in 'src' for imports
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 # --- 2. STREAMLIT CONFIG ---
 st.set_page_config(page_title="TrialIntel", layout="wide", page_icon="🧬")
 
-# Import custom logic AFTER path setup
 from processor import get_icd10_codes
 
 # --- 3. HELPER FUNCTIONS ---

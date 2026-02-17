@@ -41,7 +41,6 @@ def save_structured_trial(trial_data, structured_obj):
         session.merge(new_trial)
         
         # 2. CLEAR PREVIOUS ITEMS for this NCT ID
-        # This prevents duplicate rows if you run the script multiple times
         session.query(CriteriaItem).filter(CriteriaItem.trial_id == trial_data['nct_id']).delete()
         
         # 3. Add New Items

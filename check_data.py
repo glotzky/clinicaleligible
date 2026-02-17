@@ -2,7 +2,6 @@ import sys
 import os
 from sqlalchemy import func
 
-# Ensure we can find the database and models in the src folder
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from database import Session, CriteriaItem, Trial
@@ -53,7 +52,6 @@ def run_diagnostics():
 
         # 4. TRIAL PROTOCOL STRICTNESS
         print("⚖️  TRIAL STRICTNESS (Inclusion vs Exclusion):")
-        # Logic: More exclusions often correlate with higher "Recruitment Difficulty"
         trial_stats = session.query(
             CriteriaItem.trial_id,
             func.count(CriteriaItem.id).filter(CriteriaItem.type == 'Inclusion'),

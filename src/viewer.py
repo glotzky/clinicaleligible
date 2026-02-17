@@ -32,7 +32,6 @@ def view_data():
             return
 
         # 2. Display the table
-        # We use to_string() to ensure the table doesn't get truncated
         print(df.to_string(index=False))
         print("="*50 + "\n")
 

@@ -1,7 +1,6 @@
 import sys
 import os
 
-# Ensure the script can locate the src directory
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from database import Session, CriteriaItem, Trial
