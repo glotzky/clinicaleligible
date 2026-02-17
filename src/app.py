@@ -149,7 +149,11 @@ with tab1:
                 """
                 # Simplified SQL for SQLite compatibility
                 criteria_query = "SELECT * FROM criteria_items WHERE icd10_code IS NOT NULL"
-                all_criteria = pd.read_sql(criteria_query, engine)
+                try:
+                    all_criteria = pd.read_sql("SELECT * FROM criteria_items", engine)
+                except Exception as e:
+                    st.error("Database table not found. Please ensure trials.db is initialized and uploaded.")
+                    st.stop()
                 
                 scored_results = {}
                 for _, row in all_criteria.iterrows():
