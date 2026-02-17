@@ -1,71 +1,62 @@
 from sqlalchemy import create_engine, Column, String, Integer, Text, ForeignKey
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# 1. Setup Base and Engine
 Base = declarative_base()
-DB_URL = "sqlite:///./trials.db"
-engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
-# This is your session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# 2. Define Trial Model
-class TrialRecord(Base):
-    __tablename__ = "trials"
-    
-    nct_id = Column(String, primary_key=True, index=True)
+class Trial(Base):
+    __tablename__ = 'trials'
+    nct_id = Column(String, primary_key=True)
     title = Column(String)
-    raw_criteria = Column(Text)
-    
-    structured_items = relationship("CriterionRecord", back_populates="trial", cascade="all, delete-orphan")
+    criteria_raw = Column(Text)
 
-# 3. Define Criterion Model
-class CriterionRecord(Base):
-    __tablename__ = "criteria_items"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    trial_id = Column(String, ForeignKey("trials.nct_id"))
+class CriteriaItem(Base):
+    __tablename__ = 'criteria_items'
+    id = Column(Integer, primary_key=True)
+    trial_id = Column(String, ForeignKey('trials.nct_id'))
+    type = Column(String) 
     category = Column(String)
-    type = Column(String)
     entity = Column(String)
-    icd10_code = Column(String, nullable=True) 
-    operator = Column(String, nullable=True)   
+    icd10_code = Column(String, nullable=True)
+    operator = Column(String, nullable=True) # Added to match AI output
     value = Column(String)
-    min_age = Column(Integer, nullable=True)
-    max_age = Column(Integer, nullable=True)
-    
-    trial = relationship("TrialRecord", back_populates="structured_items")
 
-# 4. Database Operations
+# Database Setup
+engine = create_engine("sqlite:///./trials.db")
+Session = sessionmaker(bind=engine)
+
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(engine)
+    print("Database initialized successfully.")
 
-def save_structured_trial(trial_data, structured_criteria):
-    # Use SessionLocal() to create a new session instance
-    session = SessionLocal()
+def save_structured_trial(trial_data, structured_obj):
+    session = Session()
     try:
-        # 1. Save/Update the Trial header
-        trial_rec = TrialRecord(
+        # 1. Save or Update the Trial header
+        new_trial = Trial(
             nct_id=trial_data['nct_id'],
             title=trial_data['title'],
-            raw_criteria=trial_data.get('criteria', "")
+            criteria_raw=trial_data['criteria']
         )
-        session.merge(trial_rec) 
-
-        # 2. Save each Criterion item
-        for item in structured_criteria.items:
-            new_criterion = CriterionRecord(
-                trial_id=trial_data['nct_id'],
-                category=item.category,
-                type=item.type,
-                entity=item.entity,
-                icd10_code=item.icd10_code,
-                operator=item.operator,
-                value=item.value,
-                min_age=item.min_age,
-                max_age=item.max_age
-            )
-            session.add(new_criterion)
+        session.merge(new_trial)
         
+        # 2. CLEAR PREVIOUS ITEMS for this NCT ID
+        # This prevents duplicate rows if you run the script multiple times
+        session.query(CriteriaItem).filter(CriteriaItem.trial_id == trial_data['nct_id']).delete()
+        
+        # 3. Add New Items
+        for item in structured_obj.items:
+            new_item = CriteriaItem(
+                trial_id=trial_data['nct_id'],
+                type=item.type,
+                category=item.category,
+                entity=item.entity,
+                icd10_code=getattr(item, 'icd10_code', None), # Safe access
+                operator=getattr(item, 'operator', 'NOT_APPLICABLE'),
+                value=item.value
+            )
+            session.add(new_item)
+            
         session.commit()
     except Exception as e:
         session.rollback()
