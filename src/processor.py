@@ -1,62 +1,87 @@
 import os
-from typing import List, Optional, Literal
-from pydantic import BaseModel, Field
 import instructor
 from groq import Groq
+from typing import List, Optional, Literal, Annotated
+from pydantic import BaseModel, Field, field_validator, StringConstraints
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- 1. Schema Definition ---
+# Standard initialization
+_base_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+client = instructor.patch(_base_client)
+
 class Criterion(BaseModel):
-    category: Literal["Age", "Condition", "Education", "Experience", "Medication", "Laboratory", "Lifestyle", "Other"]
+    category: str 
     type: Literal["Inclusion", "Exclusion"]
-    entity: str = Field(description="The specific medical entity, e.g., 'HbA1c' or 'Left Ventricular Function'")
-    icd10_code: Optional[str] = Field(None, description="Granular ICD-10 code (e.g., C50.911 instead of just C50)")
-    
-    # We add NOT_APPLICABLE and handle common LLM hallucinations here
-    operator: Optional[Literal["GREATER_THAN", "LESS_THAN", "EQUAL", "BETWEEN", "NOT_APPLICABLE"]] = Field(
-        "NOT_APPLICABLE", 
-        description="The mathematical relationship for the value"
-    )
-    
-    value: Optional[str] = Field(description="The original text or threshold (e.g., '> 5.0')")
-    min_age: Optional[int] = Field(None, description="Numeric minimum age in years")
-    max_age: Optional[int] = Field(None, description="Numeric maximum age in years")
+    entity: str = "General"
+    icd10_code: Optional[str] = None 
+    operator: str = "NOT_APPLICABLE"
+    value: Annotated[str, StringConstraints(min_length=1)]
+
+    @field_validator('category')
+    @classmethod
+    def fix_categories(cls, v: str):
+        v = v.replace("Criteria", "").strip().title()
+        allowed = ["Age", "Condition", "Education", "Experience", "Medication", "Laboratory", "Lifestyle", "Other"]
+        
+        if v in allowed:
+            return v
+        
+        mapping = {
+            "Health": "Condition",
+            "Disease": "Condition",
+            "Drug": "Medication",
+            "Treatment": "Medication", # Added more aliases
+            "Lab": "Laboratory",
+            "Physical": "Lifestyle"
+        }
+        return mapping.get(v, "Other")
 
 class StructuredCriteria(BaseModel):
-    items: List[Criterion]
-
-# --- 2. AI Client Setup ---
-client = instructor.patch(Groq(api_key=os.environ.get("GROQ_API_KEY")))
+    items: List[Criterion] = Field(description="A single list of all extracted criteria")
 
 def parse_criteria(raw_text: str) -> StructuredCriteria:
-    """
-    Parses raw eligibility text into a structured list of criteria items.
-    Uses Llama-3.1-8b with strict schema enforcement via the 'instructor' library.
-    """
-    
-    system_instruction = (
-        "You are a Clinical Trial Data Specialist. Your task is to extract eligibility criteria into structured JSON.\n\n"
-        "STRICT ADHERENCE REQUIRED:\n"
-        "1. CATEGORIES: Only use: Age, Condition, Education, Experience, Medication, Laboratory, Lifestyle, Other.\n"
-        "   - Map 'Pregnancy' to 'Lifestyle'.\n"
-        "   - Map 'Informed Consent' to 'Other'.\n"
-        "2. OPERATORS: Use ONLY 'GREATER_THAN', 'LESS_THAN', 'EQUAL', 'BETWEEN', or 'NOT_APPLICABLE'.\n"
-        "   - NEVER use 'EXCLUSION' as an operator name.\n"
-        "3. ICD-10 CODES: Provide the most granular code possible (e.g., 'C50.911'). If no specific disease is mentioned, use null.\n"
-        "4. AGE: For 'Age' category, extract min_age and max_age as integers. If it says '18 years and older', min_age=18, max_age=120.\n"
-        "5. ENTITY: Keep this short (1-3 words). Example: 'Type 2 Diabetes', 'Prior Chemotherapy'."
+    # 1. Clean the text slightly before sending it to the AI
+    # This replaces common problematic symbols
+    clean_text = raw_text.replace("¬", " ").replace("*", " ").replace("~", " ")
+    safe_text = clean_text[:1200] 
+
+    return client.chat.completions.create(
+        model="llama-3.1-8b-instant", # Back to the fast model
+        response_model=StructuredCriteria,
+        max_retries=3,
+        messages=[
+            {
+                "role": "system", 
+                "content": (
+                    "You are a medical data architect. Extract items into ONE list.\n"
+                    "CRITICAL: Do not use special symbols like ¬ or ~. "
+                    "If you see complex scoring, summarize it into one sentence."
+                )
+            },
+            {"role": "user", "content": f"Extract: {safe_text}"}
+        ]
     )
 
-    # We use the 8B model as it's faster and cheaper on tokens for the Free Tier
-    return client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        response_model=StructuredCriteria,
-        max_retries=3, # Instructor will automatically re-prompt the LLM if it fails validation
-        messages=[
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": f"Extract structured criteria from this text: \n\n{raw_text}"}
-        ],
-        temperature=0.1, # Lower temperature = more consistent/predictable output
-    )
+class ICD10Result(BaseModel):
+    codes: List[str] = Field(description="List of specific ICD-10-CM codes (e.g., ['C50.9', 'C43.9'])")
+
+def get_icd10_codes(condition_text: str) -> List[str]:
+    """Specialized lookup that returns a list of medical codes."""
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            response_model=ICD10Result,
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Professional medical coder. Extract ALL relevant ICD-10-CM codes. Output only the codes."
+                },
+                {"role": "user", "content": f"Conditions: {condition_text}"}
+            ]
+        )
+        return response.codes
+    except Exception as e:
+        print(f"Error during ICD-10 lookup: {e}")
+        return []
