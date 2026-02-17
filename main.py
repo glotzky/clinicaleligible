@@ -2,7 +2,6 @@ import time
 import sys
 import os
 
-# Ensure src is in the path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from api_client import fetch_trial_data

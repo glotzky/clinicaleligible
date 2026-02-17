@@ -7,19 +7,24 @@ import re
 import sys
 import os
 
+# Get the absolute path to the directory this script is in (src/)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Point to the database in the PROJECT ROOT (one level up from src/)
+db_path = os.path.join(os.path.dirname(current_dir), "trials.db")
+
+# Create engine using the absolute path
+engine = create_engine(f"sqlite:///{db_path}")
+
 # Ensure we can find the modules in src
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 # --- 1. Setup ---
 st.set_page_config(page_title="TrialIntel", layout="wide", page_icon="🧬")
 
-# Get the directory where app.py is located
-current_dir = os.path.dirname(os.path.abspath(__file__))
 # Go up one level to the project root where trials.db usually lives
 project_root = os.path.dirname(current_dir)
-db_path = os.path.join(project_root, "trials.db")
 
 # Create engine using the absolute path
-engine = create_engine(f"sqlite:///{db_path}")
 
 from processor import get_icd10_codes
 
