@@ -7,31 +7,28 @@ import re
 import sys
 import os
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# --- 1. PATH & DATABASE SETUP ---
+# Get the absolute path to the 'src' directory where this script lives
+current_dir = os.path.dirname(os.path.abspath(__file__)) 
+# Get the path to the project root (one level up from 'src')
 project_root = os.path.dirname(current_dir)
+# Define the absolute path to trials.db
 db_path = os.path.join(project_root, "trials.db")
 
-engine = create_engine(f"sqlite:///{db_path}")
-# Get the absolute path to the directory this script is in (src/)
-
-# Create engine using the absolute path
+# Create a SINGLE engine instance using the absolute path
 engine = create_engine(f"sqlite:///{db_path}")
 
-# Ensure we can find the modules in src
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
-# --- 1. Setup ---
+# Ensure Python can find the modules in 'src' for imports
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+# --- 2. STREAMLIT CONFIG ---
 st.set_page_config(page_title="TrialIntel", layout="wide", page_icon="🧬")
 
-
-# Create engine using the absolute path
-
+# Import custom logic AFTER path setup
 from processor import get_icd10_codes
 
-# --- 1. Setup ---
-st.set_page_config(page_title="TrialIntel", layout="wide", page_icon="🧬")
-engine = create_engine("sqlite:///./trials.db")
-
-# --- 2. Helper Functions ---
+# --- 3. HELPER FUNCTIONS ---
 def get_wait_time(error_message):
     match = re.search(r"again in (?:(\d+)h)?(?:(\d+)m)?([\d\.]+)s", error_message)
     if match:
@@ -61,7 +58,7 @@ def check_exists(nct_id):
     except:
         return False
 
-# --- 3. Sidebar: Discovery ---
+# --- 4. SIDEBAR: DISCOVERY ---
 st.sidebar.title("🧬 Trial Discovery")
 
 if "cooldown_until" not in st.session_state:
@@ -120,13 +117,13 @@ if st.sidebar.button("🔍 Fetch from Web", disabled=is_cooling_down):
             st.sidebar.success(f"Added {processed_count} new trials!")
             st.rerun()
 
-# --- 4. Main Page Navigation ---
+# --- 5. MAIN PAGE NAVIGATION ---
 tab1, tab2 = st.tabs(["🎯 Patient Matcher", "📂 Trial Database"])
 
 with tab1:
     st.header("Patient Eligibility Engine")
     patient_desc = st.text_area("Enter Patient Medical Summary:", 
-                                placeholder="e.g. 65 year old female with HER2+ breast cancer and a history of hypertension.")
+                                placeholder="e.g. 65 year old female with HER2+ breast cancer.")
     
     if st.button("Calculate Matches"):
         if not patient_desc:
@@ -140,18 +137,8 @@ with tab1:
             else:
                 st.write(f"🧬 **Identified Codes:** {', '.join(p_codes)}")
                 
-                # Matching Logic
                 prefixes = list(set(c[:3] for c in p_codes))
                 
-                # Fetch all relevant criteria for these prefixes
-                placeholders = ', '.join([f"'{p}%'" for p in prefixes])
-                query = f"""
-                    SELECT c.*, t.title 
-                    FROM criteria_items c
-                    JOIN trials t ON c.trial_id = t.nct_id
-                    WHERE c.icd10_code LIKE ANY (ARRAY[{placeholders}])
-                """
-                # Simplified SQL for SQLite compatibility
                 criteria_query = "SELECT * FROM criteria_items WHERE icd10_code IS NOT NULL"
                 try:
                     all_criteria = pd.read_sql(criteria_query, engine)
@@ -168,7 +155,8 @@ with tab1:
                             scored_results[tid] = {"score": 0, "matches": [], "alerts": []}
                         
                         if row['type'] == 'Inclusion':
-                            scored_results[tid]["matches"].append(row['value'])
+                            if row['value'] not in scored_results[tid]["matches"]:
+                                scored_results[tid]["matches"].append(row['value'])
                             weight = 10 if code_prefix.startswith(('C', 'D', 'I', 'J')) else 2
                             scored_results[tid]["score"] += weight
                 
@@ -177,13 +165,15 @@ with tab1:
                     excl_query = "SELECT value, icd10_code FROM criteria_items WHERE trial_id = :tid AND type = 'Exclusion'"
                     excl_df = pd.read_sql(excl_query, engine, params={"tid": tid})
                     for _, erow in excl_df.iterrows():
-                        # ADD THIS CHECK: Ensure the code exists before slicing it
                         if erow['icd10_code'] and erow['icd10_code'][:3] in prefixes:
                             scored_results[tid]["alerts"].append(f"Exclusion hit: {erow['value']}")
                             scored_results[tid]["score"] -= 100
 
                 # Display Results
                 ranked = sorted(scored_results.items(), key=lambda x: x[1]['score'], reverse=True)
+                
+                if not ranked:
+                    st.info("No matching trials found in the current database.")
                 
                 for tid, data in ranked:
                     with st.container(border=True):
@@ -196,7 +186,7 @@ with tab1:
                                 st.error(f"⚠️ {a}")
                         
                         st.write("**Matched Criteria:**")
-                        for m in data['matches'][:3]: # Show top 3
+                        for m in data['matches'][:3]:
                             st.markdown(f"- {m}")
                         
                         st.link_button("View Trial", f"https://clinicaltrials.gov/study/{tid}")
