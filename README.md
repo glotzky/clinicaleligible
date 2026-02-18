@@ -2,6 +2,8 @@
 
 **TrialIntel** is an AI-powered pipeline that transforms unstructured clinical trial eligibility criteria into structured, machine-readable data. 
 
+[Trial Intel: Live App](https://clinicaltrialeligibility.streamlit.app/)
+
 ### 💡 The Problem
 Clinical trial eligibility (inclusion/exclusion criteria) is currently stored as free-text medical jargon. This makes it nearly impossible to programmatically match patients to trials or conduct large-scale recruitment analytics without manual review.
 
@@ -19,3 +21,4 @@ This project uses the **ClinicalTrials.gov API v2.0** to fetch trial data and le
 - **AI/LLM:** OpenAI GPT-4o (or Llama-3 via Groq/Ollama)
 - **Data:** SQLAlchemy, Pydantic, Requests
 - **Database:** SQLite (Default) / PostgreSQL
+
