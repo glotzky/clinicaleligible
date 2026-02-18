@@ -1,6 +1,6 @@
-# Criteria2SQL: Clinical Trial Intelligence
+# TrialIntel: Clinical Trial Intelligence
 
-**Criteria2SQL** is an AI-powered pipeline that transforms unstructured clinical trial eligibility criteria into structured, machine-readable data. 
+**TrialIntel** is an AI-powered pipeline that transforms unstructured clinical trial eligibility criteria into structured, machine-readable data. 
 
 ### 💡 The Problem
 Clinical trial eligibility (inclusion/exclusion criteria) is currently stored as free-text medical jargon. This makes it nearly impossible to programmatically match patients to trials or conduct large-scale recruitment analytics without manual review.
